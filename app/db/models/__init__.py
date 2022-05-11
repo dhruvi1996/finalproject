@@ -1,57 +1,29 @@
 from datetime import datetime
-
-from sqlalchemy import Integer, ForeignKey
-from sqlalchemy.orm import relationship
+from flask_login import UserMixin
+from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy_serializer import SerializerMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.db import db
-from flask_login import UserMixin
-from sqlalchemy_serializer import SerializerMixin
 
-transaction_user = db.Table('transaction_user', db.Model.metadata,
-                     db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
-                     db.Column('transaction_id', db.Integer, db.ForeignKey('transactions.id'))
-                     )
+Base = declarative_base()
 
-
-class Transaction(db.Model, SerializerMixin):
+class Transaction(db.Model,SerializerMixin):
     __tablename__ = 'transactions'
     id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String(300), nullable=True, unique=False)
-    amount = db.Column(db.Integer, nullable=False, unique=False)
+    AMOUNT = db.Column(db.Float(), nullable=False, unique=False)
+    TYPE = db.Column(db.String(6), nullable=False, unique=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     user = relationship("User", back_populates="transactions", uselist=False)
 
-    def __init__(self, amount, type):
-        self.amount = amount
-        self.type = type
-
-
-class Location(db.Model, SerializerMixin):
-    __tablename__ = 'locations'
-    serialize_only = ('title', 'longitude', 'latitude')
-
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(300), nullable=True, unique=False)
-    longitude = db.Column(db.String(300), nullable=True, unique=False)
-    latitude = db.Column(db.String(300), nullable=True, unique=False)
-    population = db.Column(db.Integer, nullable=True, unique=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    user = relationship("User", back_populates="locations", uselist=False)
-
-    def __init__(self, title, longitude, latitude, population):
-        self.title = title
-        self.longitude = longitude
-        self.latitude = latitude
-        self.population = population
+    def __init__(self, AMOUNT, TYPE):
+        self.AMOUNT = AMOUNT
+        self.TYPE = TYPE
 
     def serialize(self):
         return {
-            'title': self.title,
-            'long': self.longitude,
-            'lat': self.latitude,
-            'population': self.population,
+            'AMOUNT': self.AMOUNT,
+            'TYPE': self.TYPE,
         }
-
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -63,16 +35,14 @@ class User(UserMixin, db.Model):
     registered_on = db.Column('registered_on', db.DateTime)
     active = db.Column('is_active', db.Boolean(), nullable=False, server_default='1')
     is_admin = db.Column('is_admin', db.Boolean(), nullable=False, server_default='0')
+    balance = db.Column(db.Float, nullable=True, unique=False, default="0.00")
     transactions = db.relationship("Transaction", back_populates="user", cascade="all, delete")
-    locations = db.relationship("Location", back_populates="user", cascade="all, delete")
 
-    # `roles` and `groups` are reserved words that *must* be defined
-    # on the `User` model to use group- or role-based authorization.
-
-    def __init__(self, email, password):
+    def __init__(self, email, password, is_admin):
         self.email = email
         self.password = password
         self.registered_on = datetime.utcnow()
+        self.is_admin = is_admin
 
     def is_authenticated(self):
         return True
