@@ -54,7 +54,7 @@ def transactions_upload():
 
     try:
 
-        return render_template('upload.html', form=form)
+        return render_template('upload_transactions.html', form=form)
     except TemplateNotFound:
         abort(404)
 
